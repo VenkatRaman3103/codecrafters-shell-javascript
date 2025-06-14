@@ -46,6 +46,12 @@ const repl = () => {
             }
         } else if (command == "pwd") {
             console.log(process.cwd());
+        } else if (command == "cd") {
+            try {
+                process.chdir(args[0]);
+            } catch (error) {
+                console.log(`cd: ${args[0]}: No such file or directory`);
+            }
         } else {
             const executablePath = findExecutable(command);
             if (executablePath) {
