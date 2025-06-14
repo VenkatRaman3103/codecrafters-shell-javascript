@@ -11,7 +11,17 @@ const repl = () => {
             rl.close();
             process.exit(0);
         }
-        console.log(`${answer}: command not found`);
+
+        const line = answer.split(" ");
+
+        const command = line[0];
+        const args = line.slice(1).join(" ");
+
+        if (command == "echo") {
+            console.log(args);
+        } else {
+            console.log(`${answer}: command not found`);
+        }
 
         repl();
     });
