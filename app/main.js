@@ -20,15 +20,52 @@ const findExecutable = (command) => {
     return null;
 };
 
+function parseArguments(input) {
+    const args = [];
+    let current = "";
+    let isSingle = false;
+    let isDouble = false;
+
+    for (let i = 0; i < input.length; i++) {
+        const char = input[i];
+
+        if (char === "'" && !isDouble) {
+            isSingle = !isSingle;
+            continue;
+        }
+
+        if (char === '"' && !isSingle) {
+            isDouble = !isDouble;
+            continue;
+        }
+
+        if (char === " " && !isSingle && !isDouble) {
+            if (current.length > 0) {
+                args.push(current);
+                current = "";
+            }
+        } else {
+            current += char;
+        }
+    }
+
+    if (current.length > 0) {
+        args.push(current);
+    }
+
+    return args;
+}
+
 const repl = () => {
     rl.question("$ ", (answer) => {
         if (answer == "exit 0") {
             rl.close();
             process.exit(0);
         }
-        const line = answer.split(" ");
-        const command = line[0];
-        const args = line.slice(1);
+
+        const parsedArgs = parseArguments(answer);
+        const command = parsedArgs[0];
+        const args = parsedArgs.slice(1);
 
         if (command == "echo") {
             console.log(args.join(" "));
@@ -48,7 +85,6 @@ const repl = () => {
             console.log(process.cwd());
         } else if (command == "cd") {
             const path = args[0];
-
             if (path == "~") {
                 process.chdir(process.env.HOME);
             } else {
@@ -73,4 +109,5 @@ const repl = () => {
         repl();
     });
 };
+
 repl();
