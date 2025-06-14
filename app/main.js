@@ -7,7 +7,12 @@ const rl = readline.createInterface({
 
 const repl = () => {
     rl.question("$ ", (answer) => {
+        if (answer == "exit 0") {
+            rl.close();
+            process.exit(0);
+        }
         console.log(`${answer}: command not found`);
+
         repl();
     });
 };
