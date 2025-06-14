@@ -5,6 +5,8 @@ const rl = readline.createInterface({
     output: process.stdout,
 });
 
+const builtins = ["type", "echo", "exit"];
+
 const repl = () => {
     rl.question("$ ", (answer) => {
         if (answer == "exit 0") {
@@ -19,6 +21,12 @@ const repl = () => {
 
         if (command == "echo") {
             console.log(args);
+        } else if (command == "type") {
+            if (builtins.includes(args)) {
+                console.log(`${args} is a shell builtin`);
+            } else {
+                console.log(`${args}: not found`);
+            }
         } else {
             console.log(`${answer}: command not found`);
         }
