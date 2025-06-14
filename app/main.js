@@ -1,5 +1,6 @@
 import readline from "readline";
 import fs from "fs";
+import { spawnSync } from "child_process";
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -7,6 +8,17 @@ const rl = readline.createInterface({
 });
 
 const builtins = ["type", "echo", "exit"];
+
+const findExecutable = (command) => {
+    const path_dirs = process.env.PATH.split(":");
+    for (let dir of path_dirs) {
+        const filePath = `${dir}/${command}`;
+        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            return filePath;
+        }
+    }
+    return null;
+};
 
 const repl = () => {
     rl.question("$ ", (answer) => {
@@ -16,33 +28,33 @@ const repl = () => {
         }
         const line = answer.split(" ");
         const command = line[0];
-        const args = line.slice(1).join(" ");
+        const args = line.slice(1);
 
         if (command == "echo") {
-            console.log(args);
+            console.log(args.join(" "));
         } else if (command == "type") {
-            if (builtins.includes(args)) {
-                console.log(`${args} is a shell builtin`);
+            const typeArg = args.join(" ");
+            if (builtins.includes(typeArg)) {
+                console.log(`${typeArg} is a shell builtin`);
             } else {
-                const path_dirs = process.env.PATH.split(":");
-                let found = false;
-                for (let dir of path_dirs) {
-                    const filePath = `${dir}/${args}`;
-                    if (
-                        fs.existsSync(filePath) &&
-                        fs.statSync(filePath).isFile()
-                    ) {
-                        console.log(`${args} is ${filePath}`);
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    console.log(`${args}: not found`);
+                const executablePath = findExecutable(typeArg);
+                if (executablePath) {
+                    console.log(`${typeArg} is ${executablePath}`);
+                } else {
+                    console.log(`${typeArg}: not found`);
                 }
             }
         } else {
-            console.log(`${answer}: command not found`);
+            const executablePath = findExecutable(command);
+            if (executablePath) {
+                spawnSync(executablePath, args, {
+                    encoding: "utf-8",
+                    stdio: "inherit",
+                    argv0: command,
+                });
+            } else {
+                console.log(`${answer}: command not found`);
+            }
         }
         repl();
     });
