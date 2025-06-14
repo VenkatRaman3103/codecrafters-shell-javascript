@@ -7,7 +7,7 @@ const rl = readline.createInterface({
     output: process.stdout,
 });
 
-const builtins = ["type", "echo", "exit"];
+const builtins = ["type", "echo", "exit", "pwd"];
 
 const findExecutable = (command) => {
     const path_dirs = process.env.PATH.split(":");
@@ -44,6 +44,8 @@ const repl = () => {
                     console.log(`${typeArg}: not found`);
                 }
             }
+        } else if (command == "pwd") {
+            console.log(process.cwd());
         } else {
             const executablePath = findExecutable(command);
             if (executablePath) {
