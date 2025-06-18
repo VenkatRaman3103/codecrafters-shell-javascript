@@ -7,7 +7,7 @@ const rl = readline.createInterface({
     output: process.stdout,
 });
 
-const builtins = ["type", "echo", "exit", "pwd"];
+const builtins = ["type", "echo", "exit", "pwd", "cd"];
 
 const findExecutable = (command) => {
     const path_dirs = process.env.PATH.split(":");
@@ -28,6 +28,28 @@ function parseArguments(input) {
 
     for (let i = 0; i < input.length; i++) {
         const char = input[i];
+
+        if (char === "\\" && !isSingle && i + 1 < input.length) {
+            const nextChar = input[i + 1];
+            if (isDouble) {
+                if (
+                    nextChar === '"' ||
+                    nextChar === "\\" ||
+                    nextChar === "$" ||
+                    nextChar === "`" ||
+                    nextChar === "\n"
+                ) {
+                    current += nextChar;
+                    i++;
+                } else {
+                    current += char;
+                }
+            } else {
+                current += nextChar;
+                i++;
+            }
+            continue;
+        }
 
         if (char === "'" && !isDouble) {
             isSingle = !isSingle;
@@ -58,18 +80,23 @@ function parseArguments(input) {
 
 const repl = () => {
     rl.question("$ ", (answer) => {
-        if (answer == "exit 0") {
+        if (answer === "exit 0" || answer === "exit") {
             rl.close();
             process.exit(0);
         }
 
         const parsedArgs = parseArguments(answer);
+        if (parsedArgs.length === 0) {
+            repl();
+            return;
+        }
+
         const command = parsedArgs[0];
         const args = parsedArgs.slice(1);
 
-        if (command == "echo") {
+        if (command === "echo") {
             console.log(args.join(" "));
-        } else if (command == "type") {
+        } else if (command === "type") {
             const typeArg = args.join(" ");
             if (builtins.includes(typeArg)) {
                 console.log(`${typeArg} is a shell builtin`);
@@ -81,11 +108,11 @@ const repl = () => {
                     console.log(`${typeArg}: not found`);
                 }
             }
-        } else if (command == "pwd") {
+        } else if (command === "pwd") {
             console.log(process.cwd());
-        } else if (command == "cd") {
-            const path = args[0];
-            if (path == "~") {
+        } else if (command === "cd") {
+            const path = args[0] || process.env.HOME;
+            if (path === "~") {
                 process.chdir(process.env.HOME);
             } else {
                 try {
@@ -106,6 +133,7 @@ const repl = () => {
                 console.log(`${answer}: command not found`);
             }
         }
+
         repl();
     });
 };
