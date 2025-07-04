@@ -9,6 +9,12 @@ const rl = readline.createInterface({
     completer: (line) => {
         const builtins = ["echo ", "exit "];
         const hits = builtins.filter((c) => c.startsWith(line));
+
+        if (hits.length === 0) {
+            process.stdout.write("\x07");
+            return [[], line];
+        }
+
         return [hits.length ? hits : builtins, line];
     },
 });
