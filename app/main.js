@@ -258,36 +258,85 @@ function handlePipeline(commandLine) {
     const cmd1Args = parseArguments(cmd1Str);
     const cmd2Args = parseArguments(cmd2Str);
 
-    if (builtins.includes(cmd1Args[0])) {
-        const cmd2 = spawn(cmd2Args[0], cmd2Args.slice(1), {
-            stdio: ["pipe", "inherit", "inherit"],
-        });
+    const cmd1IsBuiltin = builtins.includes(cmd1Args[0]);
+    const cmd2IsBuiltin = builtins.includes(cmd2Args[0]);
 
-        let output = "";
-        if (cmd1Args[0] === "echo") {
-            output = cmd1Args.slice(1).join(" ") + "\n";
-        } else if (cmd1Args[0] === "pwd") {
-            output = process.cwd() + "\n";
-        } else if (cmd1Args[0] === "type") {
-            const typeArg = cmd1Args[1];
+    if (cmd1IsBuiltin && cmd2IsBuiltin) {
+        let output = executeBuiltin(cmd1Args);
+        let finalOutput = "";
+
+        if (cmd2Args[0] === "type") {
+            const typeArg = cmd2Args[1];
             if (builtins.includes(typeArg)) {
-                output = `${typeArg} is a shell builtin\n`;
+                finalOutput = `${typeArg} is a shell builtin`;
             } else {
                 const executablePath = findExecutable(typeArg);
                 if (executablePath) {
-                    output = `${typeArg} is ${executablePath}\n`;
+                    finalOutput = `${typeArg} is ${executablePath}`;
                 } else {
-                    output = `${typeArg}: not found\n`;
+                    finalOutput = `${typeArg}: not found`;
                 }
             }
+        } else {
+            finalOutput = output;
         }
 
-        cmd2.stdin.write(output);
+        console.log(finalOutput);
+        repl();
+    } else if (cmd1IsBuiltin && !cmd2IsBuiltin) {
+        const cmd2Path = findExecutable(cmd2Args[0]);
+        if (!cmd2Path) {
+            console.error(`${cmd2Args[0]}: command not found`);
+            repl();
+            return;
+        }
+
+        const cmd2 = spawn(cmd2Path, cmd2Args.slice(1), {
+            stdio: ["pipe", "inherit", "inherit"],
+            argv0: cmd2Args[0],
+        });
+
+        let output = executeBuiltin(cmd1Args);
+        cmd2.stdin.write(output + "\n");
         cmd2.stdin.end();
 
         cmd2.on("close", () => {
             repl();
         });
+    } else if (!cmd1IsBuiltin && cmd2IsBuiltin) {
+        const cmd1Path = findExecutable(cmd1Args[0]);
+        if (!cmd1Path) {
+            console.error(`${cmd1Args[0]}: command not found`);
+            repl();
+            return;
+        }
+
+        if (cmd2Args[0] === "type") {
+            const typeArg = cmd2Args[1];
+            let output = "";
+            if (builtins.includes(typeArg)) {
+                output = `${typeArg} is a shell builtin`;
+            } else {
+                const executablePath = findExecutable(typeArg);
+                if (executablePath) {
+                    output = `${typeArg} is ${executablePath}`;
+                } else {
+                    output = `${typeArg}: not found`;
+                }
+            }
+
+            const cmd1 = spawn(cmd1Path, cmd1Args.slice(1), {
+                stdio: ["inherit", "pipe", "inherit"],
+                argv0: cmd1Args[0],
+            });
+
+            cmd1.on("close", () => {
+                console.log(output);
+                repl();
+            });
+        } else {
+            repl();
+        }
     } else {
         const cmd1Path = findExecutable(cmd1Args[0]);
         const cmd2Path = findExecutable(cmd2Args[0]);
@@ -320,6 +369,30 @@ function handlePipeline(commandLine) {
             repl();
         });
     }
+}
+
+function executeBuiltin(args) {
+    const command = args[0];
+    const cmdArgs = args.slice(1);
+
+    if (command === "echo") {
+        return cmdArgs.join(" ");
+    } else if (command === "pwd") {
+        return process.cwd();
+    } else if (command === "type") {
+        const typeArg = cmdArgs[0];
+        if (builtins.includes(typeArg)) {
+            return `${typeArg} is a shell builtin`;
+        } else {
+            const executablePath = findExecutable(typeArg);
+            if (executablePath) {
+                return `${typeArg} is ${executablePath}`;
+            } else {
+                return `${typeArg}: not found`;
+            }
+        }
+    }
+    return "";
 }
 
 const repl = () => {
