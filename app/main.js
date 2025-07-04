@@ -8,6 +8,20 @@ const builtins = ["type", "echo", "exit", "pwd", "cd"];
 let lastTabInput = "";
 let tabCount = 0;
 
+function findLongestCommonPrefix(strings) {
+    if (strings.length === 0) return "";
+    if (strings.length === 1) return strings[0];
+
+    let prefix = strings[0];
+    for (let i = 1; i < strings.length; i++) {
+        while (prefix.length > 0 && !strings[i].startsWith(prefix)) {
+            prefix = prefix.slice(0, -1);
+        }
+        if (prefix === "") break;
+    }
+    return prefix;
+}
+
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -53,18 +67,24 @@ const rl = readline.createInterface({
             return [hits.map((c) => c + " "), line];
         }
 
-        if (tabCount === 1) {
-            process.stdout.write("\x07");
-            return [[], line];
-        } else if (tabCount === 2) {
-            process.stdout.write("\n");
-            hits.sort();
-            process.stdout.write(hits.join("  "));
-            process.stdout.write("\n");
-            setImmediate(() => {
-                rl.prompt();
-            });
-            return [[], line];
+        const longestPrefix = findLongestCommonPrefix(hits);
+
+        if (longestPrefix.length > line.length) {
+            return [[longestPrefix], line];
+        } else {
+            if (tabCount === 1) {
+                process.stdout.write("\x07");
+                return [[], line];
+            } else if (tabCount === 2) {
+                process.stdout.write("\n");
+                hits.sort();
+                process.stdout.write(hits.join("  "));
+                process.stdout.write("\n");
+                setImmediate(() => {
+                    rl.prompt();
+                });
+                return [[], line];
+            }
         }
 
         return [[], line];
