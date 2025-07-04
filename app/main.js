@@ -1,6 +1,6 @@
 import readline from "readline";
 import fs from "fs";
-import { spawnSync } from "child_process";
+import { spawnSync, spawn } from "child_process";
 import path from "path";
 
 const builtins = ["type", "echo", "exit", "pwd", "cd"];
@@ -252,6 +252,76 @@ function writeToFile(filePath, content, append) {
     }
 }
 
+function handlePipeline(commandLine) {
+    const [cmd1Str, cmd2Str] = commandLine.split("|").map((s) => s.trim());
+
+    const cmd1Args = parseArguments(cmd1Str);
+    const cmd2Args = parseArguments(cmd2Str);
+
+    if (builtins.includes(cmd1Args[0])) {
+        const cmd2 = spawn(cmd2Args[0], cmd2Args.slice(1), {
+            stdio: ["pipe", "inherit", "inherit"],
+        });
+
+        let output = "";
+        if (cmd1Args[0] === "echo") {
+            output = cmd1Args.slice(1).join(" ") + "\n";
+        } else if (cmd1Args[0] === "pwd") {
+            output = process.cwd() + "\n";
+        } else if (cmd1Args[0] === "type") {
+            const typeArg = cmd1Args[1];
+            if (builtins.includes(typeArg)) {
+                output = `${typeArg} is a shell builtin\n`;
+            } else {
+                const executablePath = findExecutable(typeArg);
+                if (executablePath) {
+                    output = `${typeArg} is ${executablePath}\n`;
+                } else {
+                    output = `${typeArg}: not found\n`;
+                }
+            }
+        }
+
+        cmd2.stdin.write(output);
+        cmd2.stdin.end();
+
+        cmd2.on("close", () => {
+            repl();
+        });
+    } else {
+        const cmd1Path = findExecutable(cmd1Args[0]);
+        const cmd2Path = findExecutable(cmd2Args[0]);
+
+        if (!cmd1Path) {
+            console.error(`${cmd1Args[0]}: command not found`);
+            repl();
+            return;
+        }
+
+        if (!cmd2Path) {
+            console.error(`${cmd2Args[0]}: command not found`);
+            repl();
+            return;
+        }
+
+        const cmd1 = spawn(cmd1Path, cmd1Args.slice(1), {
+            stdio: ["inherit", "pipe", "inherit"],
+            argv0: cmd1Args[0],
+        });
+
+        const cmd2 = spawn(cmd2Path, cmd2Args.slice(1), {
+            stdio: ["pipe", "inherit", "inherit"],
+            argv0: cmd2Args[0],
+        });
+
+        cmd1.stdout.pipe(cmd2.stdin);
+
+        cmd2.on("close", () => {
+            repl();
+        });
+    }
+}
+
 const repl = () => {
     lastTabInput = "";
     tabCount = 0;
@@ -275,6 +345,11 @@ const repl = () => {
         let output = "";
         let shouldRedirectStdout = outputFile !== null;
         let shouldRedirectStderr = errorFile !== null;
+
+        if (answer.includes("|")) {
+            handlePipeline(answer);
+            return;
+        }
 
         if (command === "echo") {
             output = args.join(" ");
