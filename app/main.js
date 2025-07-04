@@ -90,6 +90,7 @@ function parseArguments(input) {
 
 function parseRedirection(args) {
     let outputFile = null;
+    let errorFile = null;
     let filteredArgs = [];
 
     for (let i = 0; i < args.length; i++) {
@@ -100,16 +101,23 @@ function parseRedirection(args) {
                 outputFile = args[i + 1];
                 i++;
             }
+        } else if (arg === "2>") {
+            if (i + 1 < args.length) {
+                errorFile = args[i + 1];
+                i++;
+            }
         } else if (arg.startsWith("1>")) {
             outputFile = arg.slice(2);
         } else if (arg.startsWith(">")) {
             outputFile = arg.slice(1);
+        } else if (arg.startsWith("2>")) {
+            errorFile = arg.slice(2);
         } else {
             filteredArgs.push(arg);
         }
     }
 
-    return { args: filteredArgs, outputFile };
+    return { args: filteredArgs, outputFile, errorFile };
 }
 
 const repl = () => {
@@ -126,14 +134,30 @@ const repl = () => {
         }
 
         const command = parsedArgs[0];
-        const { args, outputFile } = parseRedirection(parsedArgs.slice(1));
+        const { args, outputFile, errorFile } = parseRedirection(
+            parsedArgs.slice(1),
+        );
 
         let output = "";
-        let shouldRedirect = outputFile !== null;
+        let shouldRedirectStdout = outputFile !== null;
+        let shouldRedirectStderr = errorFile !== null;
 
         if (command === "echo") {
             output = args.join(" ");
-            if (shouldRedirect) {
+
+            if (shouldRedirectStderr) {
+                try {
+                    const dir = path.dirname(errorFile);
+                    if (!fs.existsSync(dir)) {
+                        fs.mkdirSync(dir, { recursive: true });
+                    }
+                    fs.writeFileSync(errorFile, "");
+                } catch (error) {
+                    console.error(`echo: ${error.message}`);
+                }
+            }
+
+            if (shouldRedirectStdout) {
                 try {
                     const dir = path.dirname(outputFile);
                     if (!fs.existsSync(dir)) {
@@ -141,7 +165,20 @@ const repl = () => {
                     }
                     fs.writeFileSync(outputFile, output + "\n");
                 } catch (error) {
-                    console.log(`echo: ${error.message}`);
+                    const errorMsg = `echo: ${error.message}`;
+                    if (shouldRedirectStderr) {
+                        try {
+                            const dir = path.dirname(errorFile);
+                            if (!fs.existsSync(dir)) {
+                                fs.mkdirSync(dir, { recursive: true });
+                            }
+                            fs.writeFileSync(errorFile, errorMsg + "\n");
+                        } catch (writeError) {
+                            console.error(errorMsg);
+                        }
+                    } else {
+                        console.error(errorMsg);
+                    }
                 }
             } else {
                 console.log(output);
@@ -159,7 +196,19 @@ const repl = () => {
                 }
             }
 
-            if (shouldRedirect) {
+            if (shouldRedirectStderr) {
+                try {
+                    const dir = path.dirname(errorFile);
+                    if (!fs.existsSync(dir)) {
+                        fs.mkdirSync(dir, { recursive: true });
+                    }
+                    fs.writeFileSync(errorFile, "");
+                } catch (error) {
+                    console.error(`type: ${error.message}`);
+                }
+            }
+
+            if (shouldRedirectStdout) {
                 try {
                     const dir = path.dirname(outputFile);
                     if (!fs.existsSync(dir)) {
@@ -167,14 +216,40 @@ const repl = () => {
                     }
                     fs.writeFileSync(outputFile, output + "\n");
                 } catch (error) {
-                    console.log(`type: ${error.message}`);
+                    const errorMsg = `type: ${error.message}`;
+                    if (shouldRedirectStderr) {
+                        try {
+                            const dir = path.dirname(errorFile);
+                            if (!fs.existsSync(dir)) {
+                                fs.mkdirSync(dir, { recursive: true });
+                            }
+                            fs.writeFileSync(errorFile, errorMsg + "\n");
+                        } catch (writeError) {
+                            console.error(errorMsg);
+                        }
+                    } else {
+                        console.error(errorMsg);
+                    }
                 }
             } else {
                 console.log(output);
             }
         } else if (command === "pwd") {
             output = process.cwd();
-            if (shouldRedirect) {
+
+            if (shouldRedirectStderr) {
+                try {
+                    const dir = path.dirname(errorFile);
+                    if (!fs.existsSync(dir)) {
+                        fs.mkdirSync(dir, { recursive: true });
+                    }
+                    fs.writeFileSync(errorFile, "");
+                } catch (error) {
+                    console.error(`pwd: ${error.message}`);
+                }
+            }
+
+            if (shouldRedirectStdout) {
                 try {
                     const dir = path.dirname(outputFile);
                     if (!fs.existsSync(dir)) {
@@ -182,30 +257,77 @@ const repl = () => {
                     }
                     fs.writeFileSync(outputFile, output + "\n");
                 } catch (error) {
-                    console.log(`pwd: ${error.message}`);
+                    const errorMsg = `pwd: ${error.message}`;
+                    if (shouldRedirectStderr) {
+                        try {
+                            const dir = path.dirname(errorFile);
+                            if (!fs.existsSync(dir)) {
+                                fs.mkdirSync(dir, { recursive: true });
+                            }
+                            fs.writeFileSync(errorFile, errorMsg + "\n");
+                        } catch (writeError) {
+                            console.error(errorMsg);
+                        }
+                    } else {
+                        console.error(errorMsg);
+                    }
                 }
             } else {
                 console.log(output);
             }
         } else if (command === "cd") {
             const path = args[0] || process.env.HOME;
+
+            if (shouldRedirectStderr) {
+                try {
+                    const dir = path.dirname(errorFile);
+                    if (!fs.existsSync(dir)) {
+                        fs.mkdirSync(dir, { recursive: true });
+                    }
+                    fs.writeFileSync(errorFile, "");
+                } catch (error) {
+                    console.error(`cd: ${error.message}`);
+                }
+            }
+
             if (path === "~") {
                 process.chdir(process.env.HOME);
             } else {
                 try {
                     process.chdir(path);
                 } catch (error) {
-                    console.log(`cd: ${path}: No such file or directory`);
+                    const errorMsg = `cd: ${path}: No such file or directory`;
+                    if (shouldRedirectStderr) {
+                        try {
+                            const dir = path.dirname(errorFile);
+                            if (!fs.existsSync(dir)) {
+                                fs.mkdirSync(dir, { recursive: true });
+                            }
+                            fs.writeFileSync(errorFile, errorMsg + "\n");
+                        } catch (writeError) {
+                            console.error(errorMsg);
+                        }
+                    } else {
+                        console.error(errorMsg);
+                    }
                 }
             }
         } else {
             const executablePath = findExecutable(command);
             if (executablePath) {
-                if (shouldRedirect) {
+                if (shouldRedirectStdout || shouldRedirectStderr) {
                     try {
-                        const dir = path.dirname(outputFile);
-                        if (!fs.existsSync(dir)) {
-                            fs.mkdirSync(dir, { recursive: true });
+                        if (shouldRedirectStdout) {
+                            const dir = path.dirname(outputFile);
+                            if (!fs.existsSync(dir)) {
+                                fs.mkdirSync(dir, { recursive: true });
+                            }
+                        }
+                        if (shouldRedirectStderr) {
+                            const dir = path.dirname(errorFile);
+                            if (!fs.existsSync(dir)) {
+                                fs.mkdirSync(dir, { recursive: true });
+                            }
                         }
 
                         const result = spawnSync(executablePath, args, {
@@ -214,14 +336,35 @@ const repl = () => {
                         });
 
                         if (result.stdout) {
-                            fs.writeFileSync(outputFile, result.stdout);
+                            if (shouldRedirectStdout) {
+                                fs.writeFileSync(outputFile, result.stdout);
+                            } else {
+                                process.stdout.write(result.stdout);
+                            }
                         }
 
                         if (result.stderr) {
-                            process.stderr.write(result.stderr);
+                            if (shouldRedirectStderr) {
+                                fs.writeFileSync(errorFile, result.stderr);
+                            } else {
+                                process.stderr.write(result.stderr);
+                            }
                         }
                     } catch (error) {
-                        console.log(`${command}: ${error.message}`);
+                        const errorMsg = `${command}: ${error.message}`;
+                        if (shouldRedirectStderr) {
+                            try {
+                                const dir = path.dirname(errorFile);
+                                if (!fs.existsSync(dir)) {
+                                    fs.mkdirSync(dir, { recursive: true });
+                                }
+                                fs.writeFileSync(errorFile, errorMsg + "\n");
+                            } catch (writeError) {
+                                console.error(errorMsg);
+                            }
+                        } else {
+                            console.error(errorMsg);
+                        }
                     }
                 } else {
                     spawnSync(executablePath, args, {
@@ -231,7 +374,20 @@ const repl = () => {
                     });
                 }
             } else {
-                console.log(`${answer}: command not found`);
+                const errorMsg = `${answer}: command not found`;
+                if (shouldRedirectStderr) {
+                    try {
+                        const dir = path.dirname(errorFile);
+                        if (!fs.existsSync(dir)) {
+                            fs.mkdirSync(dir, { recursive: true });
+                        }
+                        fs.writeFileSync(errorFile, errorMsg + "\n");
+                    } catch (error) {
+                        console.error(errorMsg);
+                    }
+                } else {
+                    console.error(errorMsg);
+                }
             }
         }
 
