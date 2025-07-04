@@ -253,121 +253,74 @@ function writeToFile(filePath, content, append) {
 }
 
 function handlePipeline(commandLine) {
-    const [cmd1Str, cmd2Str] = commandLine.split("|").map((s) => s.trim());
+    const commands = commandLine.split("|").map((s) => s.trim());
 
-    const cmd1Args = parseArguments(cmd1Str);
-    const cmd2Args = parseArguments(cmd2Str);
-
-    const cmd1IsBuiltin = builtins.includes(cmd1Args[0]);
-    const cmd2IsBuiltin = builtins.includes(cmd2Args[0]);
-
-    if (cmd1IsBuiltin && cmd2IsBuiltin) {
-        let output = executeBuiltin(cmd1Args);
-        let finalOutput = "";
-
-        if (cmd2Args[0] === "type") {
-            const typeArg = cmd2Args[1];
-            if (builtins.includes(typeArg)) {
-                finalOutput = `${typeArg} is a shell builtin`;
-            } else {
-                const executablePath = findExecutable(typeArg);
-                if (executablePath) {
-                    finalOutput = `${typeArg} is ${executablePath}`;
-                } else {
-                    finalOutput = `${typeArg}: not found`;
-                }
-            }
-        } else {
-            finalOutput = output;
-        }
-
-        console.log(finalOutput);
+    if (commands.length < 2) {
         repl();
-    } else if (cmd1IsBuiltin && !cmd2IsBuiltin) {
-        const cmd2Path = findExecutable(cmd2Args[0]);
-        if (!cmd2Path) {
-            console.error(`${cmd2Args[0]}: command not found`);
-            repl();
-            return;
-        }
+        return;
+    }
 
-        const cmd2 = spawn(cmd2Path, cmd2Args.slice(1), {
-            stdio: ["pipe", "inherit", "inherit"],
-            argv0: cmd2Args[0],
-        });
+    const processes = [];
+    let builtinOutput = null;
 
-        let output = executeBuiltin(cmd1Args);
-        cmd2.stdin.write(output + "\n");
-        cmd2.stdin.end();
+    for (let i = 0; i < commands.length; i++) {
+        const args = parseArguments(commands[i]);
+        const command = args[0];
+        const isFirst = i === 0;
+        const isLast = i === commands.length - 1;
 
-        cmd2.on("close", () => {
-            repl();
-        });
-    } else if (!cmd1IsBuiltin && cmd2IsBuiltin) {
-        const cmd1Path = findExecutable(cmd1Args[0]);
-        if (!cmd1Path) {
-            console.error(`${cmd1Args[0]}: command not found`);
-            repl();
-            return;
-        }
+        if (builtins.includes(command)) {
+            const output = executeBuiltin(args);
+            builtinOutput = output;
 
-        if (cmd2Args[0] === "type") {
-            const typeArg = cmd2Args[1];
-            let output = "";
-            if (builtins.includes(typeArg)) {
-                output = `${typeArg} is a shell builtin`;
+            if (isLast) {
+                process.stdout.write(builtinOutput + "\n");
+                repl();
+                return;
+            }
+        } else {
+            const executablePath = findExecutable(command);
+            if (!executablePath) {
+                console.error(`${command}: command not found`);
+                repl();
+                return;
+            }
+
+            const stdio = ["pipe", "pipe", "inherit"];
+
+            const childProcess = spawn(executablePath, args.slice(1), {
+                stdio: stdio,
+                argv0: command,
+            });
+
+            processes.push(childProcess);
+
+            if (isFirst) {
+                childProcess.stdin.end();
+            } else if (builtinOutput !== null) {
+                childProcess.stdin.write(builtinOutput + "\n");
+                childProcess.stdin.end();
+                builtinOutput = null;
             } else {
-                const executablePath = findExecutable(typeArg);
-                if (executablePath) {
-                    output = `${typeArg} is ${executablePath}`;
-                } else {
-                    output = `${typeArg}: not found`;
+                const prevProcess = processes[processes.length - 2];
+                if (prevProcess && prevProcess.stdout) {
+                    prevProcess.stdout.pipe(childProcess.stdin);
                 }
             }
 
-            const cmd1 = spawn(cmd1Path, cmd1Args.slice(1), {
-                stdio: ["inherit", "pipe", "inherit"],
-                argv0: cmd1Args[0],
-            });
-
-            cmd1.on("close", () => {
-                console.log(output);
-                repl();
-            });
-        } else {
-            repl();
+            if (isLast) {
+                childProcess.stdout.pipe(process.stdout);
+            }
         }
+    }
+
+    const lastProcess = processes[processes.length - 1];
+    if (lastProcess) {
+        lastProcess.on("close", (code) => {
+            repl();
+        });
     } else {
-        const cmd1Path = findExecutable(cmd1Args[0]);
-        const cmd2Path = findExecutable(cmd2Args[0]);
-
-        if (!cmd1Path) {
-            console.error(`${cmd1Args[0]}: command not found`);
-            repl();
-            return;
-        }
-
-        if (!cmd2Path) {
-            console.error(`${cmd2Args[0]}: command not found`);
-            repl();
-            return;
-        }
-
-        const cmd1 = spawn(cmd1Path, cmd1Args.slice(1), {
-            stdio: ["inherit", "pipe", "inherit"],
-            argv0: cmd1Args[0],
-        });
-
-        const cmd2 = spawn(cmd2Path, cmd2Args.slice(1), {
-            stdio: ["pipe", "inherit", "inherit"],
-            argv0: cmd2Args[0],
-        });
-
-        cmd1.stdout.pipe(cmd2.stdin);
-
-        cmd2.on("close", () => {
-            repl();
-        });
+        repl();
     }
 }
 
