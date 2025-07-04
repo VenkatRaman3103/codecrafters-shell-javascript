@@ -357,31 +357,36 @@ const repl = () => {
                             argv0: command,
                         });
 
-                        if (result.stdout) {
-                            if (shouldRedirectStdout) {
-                                if (appendOutput) {
-                                    fs.appendFileSync(
-                                        outputFile,
-                                        result.stdout,
-                                    );
-                                } else {
-                                    fs.writeFileSync(outputFile, result.stdout);
-                                }
+                        if (shouldRedirectStdout) {
+                            if (appendOutput) {
+                                fs.appendFileSync(
+                                    outputFile,
+                                    result.stdout || "",
+                                );
                             } else {
-                                process.stdout.write(result.stdout);
+                                fs.writeFileSync(
+                                    outputFile,
+                                    result.stdout || "",
+                                );
                             }
+                        } else if (result.stdout) {
+                            process.stdout.write(result.stdout);
                         }
 
-                        if (result.stderr) {
-                            if (shouldRedirectStderr) {
-                                if (appendError) {
-                                    fs.appendFileSync(errorFile, result.stderr);
-                                } else {
-                                    fs.writeFileSync(errorFile, result.stderr);
-                                }
+                        if (shouldRedirectStderr) {
+                            if (appendError) {
+                                fs.appendFileSync(
+                                    errorFile,
+                                    result.stderr || "",
+                                );
                             } else {
-                                process.stderr.write(result.stderr);
+                                fs.writeFileSync(
+                                    errorFile,
+                                    result.stderr || "",
+                                );
                             }
+                        } else if (result.stderr) {
+                            process.stderr.write(result.stderr);
                         }
                     } catch (error) {
                         const errorMsg = `${command}: ${error.message}`;
