@@ -91,33 +91,84 @@ function parseArguments(input) {
 function parseRedirection(args) {
     let outputFile = null;
     let errorFile = null;
+    let appendOutput = false;
+    let appendError = false;
     let filteredArgs = [];
 
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
 
-        if (arg === ">" || arg === "1>") {
+        if (arg === ">>" || arg === "1>>") {
             if (i + 1 < args.length) {
                 outputFile = args[i + 1];
+                appendOutput = true;
+                i++;
+            }
+        } else if (arg === ">" || arg === "1>") {
+            if (i + 1 < args.length) {
+                outputFile = args[i + 1];
+                appendOutput = false;
                 i++;
             }
         } else if (arg === "2>") {
             if (i + 1 < args.length) {
                 errorFile = args[i + 1];
+                appendError = false;
                 i++;
             }
+        } else if (arg === "2>>") {
+            if (i + 1 < args.length) {
+                errorFile = args[i + 1];
+                appendError = true;
+                i++;
+            }
+        } else if (arg.startsWith("1>>")) {
+            outputFile = arg.slice(3);
+            appendOutput = true;
+        } else if (arg.startsWith(">>")) {
+            outputFile = arg.slice(2);
+            appendOutput = true;
         } else if (arg.startsWith("1>")) {
             outputFile = arg.slice(2);
+            appendOutput = false;
         } else if (arg.startsWith(">")) {
             outputFile = arg.slice(1);
+            appendOutput = false;
+        } else if (arg.startsWith("2>>")) {
+            errorFile = arg.slice(3);
+            appendError = true;
         } else if (arg.startsWith("2>")) {
             errorFile = arg.slice(2);
+            appendError = false;
         } else {
             filteredArgs.push(arg);
         }
     }
 
-    return { args: filteredArgs, outputFile, errorFile };
+    return {
+        args: filteredArgs,
+        outputFile,
+        errorFile,
+        appendOutput,
+        appendError,
+    };
+}
+
+function writeToFile(filePath, content, append) {
+    try {
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
+        if (append) {
+            fs.appendFileSync(filePath, content);
+        } else {
+            fs.writeFileSync(filePath, content);
+        }
+    } catch (error) {
+        throw error;
+    }
 }
 
 const repl = () => {
@@ -134,9 +185,8 @@ const repl = () => {
         }
 
         const command = parsedArgs[0];
-        const { args, outputFile, errorFile } = parseRedirection(
-            parsedArgs.slice(1),
-        );
+        const { args, outputFile, errorFile, appendOutput, appendError } =
+            parseRedirection(parsedArgs.slice(1));
 
         let output = "";
         let shouldRedirectStdout = outputFile !== null;
@@ -147,11 +197,7 @@ const repl = () => {
 
             if (shouldRedirectStderr) {
                 try {
-                    const dir = path.dirname(errorFile);
-                    if (!fs.existsSync(dir)) {
-                        fs.mkdirSync(dir, { recursive: true });
-                    }
-                    fs.writeFileSync(errorFile, "");
+                    writeToFile(errorFile, "", appendError);
                 } catch (error) {
                     console.error(`echo: ${error.message}`);
                 }
@@ -159,20 +205,16 @@ const repl = () => {
 
             if (shouldRedirectStdout) {
                 try {
-                    const dir = path.dirname(outputFile);
-                    if (!fs.existsSync(dir)) {
-                        fs.mkdirSync(dir, { recursive: true });
-                    }
-                    fs.writeFileSync(outputFile, output + "\n");
+                    writeToFile(outputFile, output + "\n", appendOutput);
                 } catch (error) {
                     const errorMsg = `echo: ${error.message}`;
                     if (shouldRedirectStderr) {
                         try {
-                            const dir = path.dirname(errorFile);
-                            if (!fs.existsSync(dir)) {
-                                fs.mkdirSync(dir, { recursive: true });
-                            }
-                            fs.writeFileSync(errorFile, errorMsg + "\n");
+                            writeToFile(
+                                errorFile,
+                                errorMsg + "\n",
+                                appendError,
+                            );
                         } catch (writeError) {
                             console.error(errorMsg);
                         }
@@ -198,11 +240,7 @@ const repl = () => {
 
             if (shouldRedirectStderr) {
                 try {
-                    const dir = path.dirname(errorFile);
-                    if (!fs.existsSync(dir)) {
-                        fs.mkdirSync(dir, { recursive: true });
-                    }
-                    fs.writeFileSync(errorFile, "");
+                    writeToFile(errorFile, "", appendError);
                 } catch (error) {
                     console.error(`type: ${error.message}`);
                 }
@@ -210,20 +248,16 @@ const repl = () => {
 
             if (shouldRedirectStdout) {
                 try {
-                    const dir = path.dirname(outputFile);
-                    if (!fs.existsSync(dir)) {
-                        fs.mkdirSync(dir, { recursive: true });
-                    }
-                    fs.writeFileSync(outputFile, output + "\n");
+                    writeToFile(outputFile, output + "\n", appendOutput);
                 } catch (error) {
                     const errorMsg = `type: ${error.message}`;
                     if (shouldRedirectStderr) {
                         try {
-                            const dir = path.dirname(errorFile);
-                            if (!fs.existsSync(dir)) {
-                                fs.mkdirSync(dir, { recursive: true });
-                            }
-                            fs.writeFileSync(errorFile, errorMsg + "\n");
+                            writeToFile(
+                                errorFile,
+                                errorMsg + "\n",
+                                appendError,
+                            );
                         } catch (writeError) {
                             console.error(errorMsg);
                         }
@@ -239,11 +273,7 @@ const repl = () => {
 
             if (shouldRedirectStderr) {
                 try {
-                    const dir = path.dirname(errorFile);
-                    if (!fs.existsSync(dir)) {
-                        fs.mkdirSync(dir, { recursive: true });
-                    }
-                    fs.writeFileSync(errorFile, "");
+                    writeToFile(errorFile, "", appendError);
                 } catch (error) {
                     console.error(`pwd: ${error.message}`);
                 }
@@ -251,20 +281,16 @@ const repl = () => {
 
             if (shouldRedirectStdout) {
                 try {
-                    const dir = path.dirname(outputFile);
-                    if (!fs.existsSync(dir)) {
-                        fs.mkdirSync(dir, { recursive: true });
-                    }
-                    fs.writeFileSync(outputFile, output + "\n");
+                    writeToFile(outputFile, output + "\n", appendOutput);
                 } catch (error) {
                     const errorMsg = `pwd: ${error.message}`;
                     if (shouldRedirectStderr) {
                         try {
-                            const dir = path.dirname(errorFile);
-                            if (!fs.existsSync(dir)) {
-                                fs.mkdirSync(dir, { recursive: true });
-                            }
-                            fs.writeFileSync(errorFile, errorMsg + "\n");
+                            writeToFile(
+                                errorFile,
+                                errorMsg + "\n",
+                                appendError,
+                            );
                         } catch (writeError) {
                             console.error(errorMsg);
                         }
@@ -280,11 +306,7 @@ const repl = () => {
 
             if (shouldRedirectStderr) {
                 try {
-                    const dir = path.dirname(errorFile);
-                    if (!fs.existsSync(dir)) {
-                        fs.mkdirSync(dir, { recursive: true });
-                    }
-                    fs.writeFileSync(errorFile, "");
+                    writeToFile(errorFile, "", appendError);
                 } catch (error) {
                     console.error(`cd: ${error.message}`);
                 }
@@ -299,11 +321,11 @@ const repl = () => {
                     const errorMsg = `cd: ${path}: No such file or directory`;
                     if (shouldRedirectStderr) {
                         try {
-                            const dir = path.dirname(errorFile);
-                            if (!fs.existsSync(dir)) {
-                                fs.mkdirSync(dir, { recursive: true });
-                            }
-                            fs.writeFileSync(errorFile, errorMsg + "\n");
+                            writeToFile(
+                                errorFile,
+                                errorMsg + "\n",
+                                appendError,
+                            );
                         } catch (writeError) {
                             console.error(errorMsg);
                         }
@@ -337,7 +359,14 @@ const repl = () => {
 
                         if (result.stdout) {
                             if (shouldRedirectStdout) {
-                                fs.writeFileSync(outputFile, result.stdout);
+                                if (appendOutput) {
+                                    fs.appendFileSync(
+                                        outputFile,
+                                        result.stdout,
+                                    );
+                                } else {
+                                    fs.writeFileSync(outputFile, result.stdout);
+                                }
                             } else {
                                 process.stdout.write(result.stdout);
                             }
@@ -345,7 +374,11 @@ const repl = () => {
 
                         if (result.stderr) {
                             if (shouldRedirectStderr) {
-                                fs.writeFileSync(errorFile, result.stderr);
+                                if (appendError) {
+                                    fs.appendFileSync(errorFile, result.stderr);
+                                } else {
+                                    fs.writeFileSync(errorFile, result.stderr);
+                                }
                             } else {
                                 process.stderr.write(result.stderr);
                             }
@@ -354,11 +387,11 @@ const repl = () => {
                         const errorMsg = `${command}: ${error.message}`;
                         if (shouldRedirectStderr) {
                             try {
-                                const dir = path.dirname(errorFile);
-                                if (!fs.existsSync(dir)) {
-                                    fs.mkdirSync(dir, { recursive: true });
-                                }
-                                fs.writeFileSync(errorFile, errorMsg + "\n");
+                                writeToFile(
+                                    errorFile,
+                                    errorMsg + "\n",
+                                    appendError,
+                                );
                             } catch (writeError) {
                                 console.error(errorMsg);
                             }
@@ -377,11 +410,7 @@ const repl = () => {
                 const errorMsg = `${answer}: command not found`;
                 if (shouldRedirectStderr) {
                     try {
-                        const dir = path.dirname(errorFile);
-                        if (!fs.existsSync(dir)) {
-                            fs.mkdirSync(dir, { recursive: true });
-                        }
-                        fs.writeFileSync(errorFile, errorMsg + "\n");
+                        writeToFile(errorFile, errorMsg + "\n", appendError);
                     } catch (error) {
                         console.error(errorMsg);
                     }
