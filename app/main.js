@@ -3,23 +3,34 @@ import fs from "fs";
 import { spawnSync } from "child_process";
 import path from "path";
 
+const builtins = ["type", "echo", "exit", "pwd", "cd"];
+
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     completer: (line) => {
-        const builtins = ["echo ", "exit "];
-        const hits = builtins.filter((c) => c.startsWith(line));
+        const completions = ["echo", "exit", "type", "pwd", "cd"];
+        const path = process.env.PATH.split(":");
+
+        path.forEach((dir) => {
+            try {
+                const files = fs.readdirSync(dir);
+                completions.push(...files);
+            } catch (err) {
+                // ignore error
+            }
+        });
+
+        const hits = completions.filter((c) => c.startsWith(line));
 
         if (hits.length === 0) {
             process.stdout.write("\x07");
             return [[], line];
         }
 
-        return [hits.length ? hits : builtins, line];
+        return [hits.map((c) => c + " "), line];
     },
 });
-
-const builtins = ["type", "echo", "exit", "pwd", "cd"];
 
 const findExecutable = (command) => {
     const path_dirs = process.env.PATH.split(":");
