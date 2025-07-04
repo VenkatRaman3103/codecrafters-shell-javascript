@@ -6,6 +6,11 @@ import path from "path";
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
+    completer: (line) => {
+        const builtins = ["echo ", "exit "];
+        const hits = builtins.filter((c) => c.startsWith(line));
+        return [hits.length ? hits : builtins, line];
+    },
 });
 
 const builtins = ["type", "echo", "exit", "pwd", "cd"];
