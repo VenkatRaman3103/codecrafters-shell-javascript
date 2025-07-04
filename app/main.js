@@ -5,6 +5,9 @@ import path from "path";
 
 const builtins = ["type", "echo", "exit", "pwd", "cd"];
 
+let lastTabInput = "";
+let tabCount = 0;
+
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -15,20 +18,56 @@ const rl = readline.createInterface({
         path.forEach((dir) => {
             try {
                 const files = fs.readdirSync(dir);
-                completions.push(...files);
+                files.forEach((file) => {
+                    const filePath = `${dir}/${file}`;
+                    try {
+                        const stats = fs.statSync(filePath);
+                        if (stats.isFile() && stats.mode & parseInt("111", 8)) {
+                            completions.push(file);
+                        }
+                    } catch (err) {
+                        // ignore error
+                    }
+                });
             } catch (err) {
                 // ignore error
             }
         });
 
-        const hits = completions.filter((c) => c.startsWith(line));
+        const uniqueCompletions = [...new Set(completions)];
+        const hits = uniqueCompletions.filter((c) => c.startsWith(line));
+
+        if (line === lastTabInput) {
+            tabCount++;
+        } else {
+            tabCount = 1;
+            lastTabInput = line;
+        }
 
         if (hits.length === 0) {
             process.stdout.write("\x07");
             return [[], line];
         }
 
-        return [hits.map((c) => c + " "), line];
+        if (hits.length === 1) {
+            return [hits.map((c) => c + " "), line];
+        }
+
+        if (tabCount === 1) {
+            process.stdout.write("\x07");
+            return [[], line];
+        } else if (tabCount === 2) {
+            process.stdout.write("\n");
+            hits.sort();
+            process.stdout.write(hits.join("  "));
+            process.stdout.write("\n");
+            setImmediate(() => {
+                rl.prompt();
+            });
+            return [[], line];
+        }
+
+        return [[], line];
     },
 });
 
@@ -159,7 +198,7 @@ function parseRedirection(args) {
         } else if (arg.startsWith("2>>")) {
             errorFile = arg.slice(3);
             appendError = true;
-        } else if (arg.startsWith("2>")) {
+        } else if (arg.startsWith("2>") && arg.length > 2) {
             errorFile = arg.slice(2);
             appendError = false;
         } else {
@@ -194,6 +233,9 @@ function writeToFile(filePath, content, append) {
 }
 
 const repl = () => {
+    lastTabInput = "";
+    tabCount = 0;
+
     rl.question("$ ", (answer) => {
         if (answer === "exit 0" || answer === "exit") {
             rl.close();
