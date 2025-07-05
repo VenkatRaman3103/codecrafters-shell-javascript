@@ -389,6 +389,7 @@ function executeBuiltin(args) {
 }
 
 let history = [];
+let historyLastIndex = 0;
 
 const repl = () => {
     lastTabInput = "";
@@ -587,19 +588,34 @@ const repl = () => {
             } else if (args.length >= 2 && args[0] === "-w") {
                 const historyFilePath = args[1];
                 try {
-                    // Create directory if it doesn't exist
                     const dir = path.dirname(historyFilePath);
                     if (!fs.existsSync(dir)) {
                         fs.mkdirSync(dir, { recursive: true });
                     }
 
-                    // Write all history commands to the file
                     const historyContent = history.join("\n") + "\n";
                     fs.writeFileSync(historyFilePath, historyContent, "utf8");
+                    historyLastIndex = history.length;
 
                     output = "";
                 } catch (error) {
                     output = `history: ${error.message}`;
+                }
+            } else if (args.length >= 2 && args[0] === "-a") {
+                const historyFilePath = args[1];
+
+                if (!historyFilePath) {
+                    console.error("history -a: missing file operand");
+                }
+
+                const toAppend = history.slice(historyLastIndex);
+
+                if (toAppend.length > 0) {
+                    fs.appendFileSync(
+                        historyFilePath,
+                        toAppend.join("\n") + "\n",
+                    );
+                    historyLastIndex = history.length;
                 }
             } else {
                 if (args.length > 0) {
