@@ -406,14 +406,27 @@ if (process.env.HISTFILE) {
     }
 }
 
+const exitShell = (code) => {
+    if (process.env.HISTFILE) {
+        try {
+            fs.writeFileSync(process.env.HISTFILE, history.join("\n") + "\n");
+        } catch (_) {
+            // ignore error
+        }
+    }
+    rl.close();
+    process.exit(code ? Number.parseInt(code) : 0);
+};
+
 const repl = () => {
     lastTabInput = "";
     tabCount = 0;
 
     rl.question("$ ", (answer) => {
         if (answer === "exit 0" || answer === "exit") {
-            rl.close();
-            process.exit(0);
+            history.push(answer);
+            exitShell(0);
+            return;
         }
 
         const parsedArgs = parseArguments(answer);
