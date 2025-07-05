@@ -348,6 +348,8 @@ function executeBuiltin(args) {
     return "";
 }
 
+let history = [];
+
 const repl = () => {
     lastTabInput = "";
     tabCount = 0;
@@ -359,12 +361,15 @@ const repl = () => {
         }
 
         const parsedArgs = parseArguments(answer);
+
         if (parsedArgs.length === 0) {
             repl();
             return;
         }
 
         const command = parsedArgs[0];
+        history.push(answer);
+
         const { args, outputFile, errorFile, appendOutput, appendError } =
             parseRedirection(parsedArgs.slice(1));
 
@@ -518,6 +523,10 @@ const repl = () => {
                         console.error(errorMsg);
                     }
                 }
+            }
+        } else if (command === "history") {
+            for (let i = 0; i < history.length; i++) {
+                console.log(`${i + 1} ${history[i]}`);
             }
         } else {
             const executablePath = findExecutable(command);
