@@ -345,6 +345,27 @@ function executeBuiltin(args) {
             }
         }
     } else if (command === "history") {
+        if (cmdArgs.length >= 2 && cmdArgs[0] === "-r") {
+            const historyFilePath = cmdArgs[1];
+            try {
+                const historyFileContent = fs.readFileSync(
+                    historyFilePath,
+                    "utf8",
+                );
+                const lines = historyFileContent.split("\n");
+
+                for (const line of lines) {
+                    if (line.trim() !== "") {
+                        history.push(line);
+                    }
+                }
+
+                return "";
+            } catch (error) {
+                return `history: ${error.message}`;
+            }
+        }
+
         if (cmdArgs.length > 0) {
             const n = parseInt(cmdArgs[0]);
             const startIndex = Math.max(0, history.length - n);
@@ -544,23 +565,47 @@ const repl = () => {
                 }
             }
         } else if (command === "history") {
-            if (args.length > 0) {
-                const n = parseInt(args[0]);
-                const startIndex = Math.max(0, history.length - n);
-                output = "";
+            // Handle history -r <path_to_history_file>
+            if (args.length >= 2 && args[0] === "-r") {
+                const historyFilePath = args[1];
+                try {
+                    const historyFileContent = fs.readFileSync(
+                        historyFilePath,
+                        "utf8",
+                    );
+                    const lines = historyFileContent.split("\n");
 
-                for (let i = startIndex; i < history.length; i++) {
-                    const lineNum = i + 1;
-                    output += `${lineNum.toString().padStart(4)} ${history[i]}\n`;
+                    for (const line of lines) {
+                        // Skip empty lines
+                        if (line.trim() !== "") {
+                            history.push(line);
+                        }
+                    }
+
+                    output = ""; // history -r doesn't produce output
+                } catch (error) {
+                    output = `history: ${error.message}`;
                 }
-                output = output.trimEnd();
             } else {
-                output = "";
-                for (let i = 0; i < history.length; i++) {
-                    const lineNum = i + 1;
-                    output += `${lineNum.toString().padStart(4)} ${history[i]}\n`;
+                // Handle regular history command
+                if (args.length > 0) {
+                    const n = parseInt(args[0]);
+                    const startIndex = Math.max(0, history.length - n);
+                    output = "";
+
+                    for (let i = startIndex; i < history.length; i++) {
+                        const lineNum = i + 1;
+                        output += `${lineNum.toString().padStart(4)} ${history[i]}\n`;
+                    }
+                    output = output.trimEnd();
+                } else {
+                    output = "";
+                    for (let i = 0; i < history.length; i++) {
+                        const lineNum = i + 1;
+                        output += `${lineNum.toString().padStart(4)} ${history[i]}\n`;
+                    }
+                    output = output.trimEnd();
                 }
-                output = output.trimEnd();
             }
 
             if (shouldRedirectStderr) {
@@ -590,7 +635,7 @@ const repl = () => {
                         console.error(errorMsg);
                     }
                 }
-            } else {
+            } else if (output) {
                 console.log(output);
             }
         } else {
