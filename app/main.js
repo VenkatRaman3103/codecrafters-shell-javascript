@@ -3,7 +3,7 @@ import fs from "fs";
 import { spawnSync, spawn } from "child_process";
 import path from "path";
 
-const builtins = ["type", "echo", "exit", "pwd", "cd"];
+const builtins = ["type", "echo", "exit", "pwd", "cd", "history"];
 
 let lastTabInput = "";
 let tabCount = 0;
@@ -26,7 +26,7 @@ const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     completer: (line) => {
-        const completions = ["echo", "exit", "type", "pwd", "cd"];
+        const completions = ["echo", "exit", "type", "pwd", "cd", "history"];
         const path = process.env.PATH.split(":");
 
         path.forEach((dir) => {
