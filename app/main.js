@@ -391,6 +391,21 @@ function executeBuiltin(args) {
 let history = [];
 let historyLastIndex = 0;
 
+if (process.env.HISTFILE) {
+    try {
+        const lines = fs
+            .readFileSync(process.env.HISTFILE, "utf8")
+            .split("\n")
+            .filter((line) => line.trim() !== "");
+        for (const line of lines) {
+            history.push(line);
+        }
+        historyLastIndex = history.length;
+    } catch (err) {
+        // ignore error
+    }
+}
+
 const repl = () => {
     lastTabInput = "";
     tabCount = 0;
