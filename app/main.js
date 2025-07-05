@@ -565,7 +565,6 @@ const repl = () => {
                 }
             }
         } else if (command === "history") {
-            // Handle history -r <path_to_history_file>
             if (args.length >= 2 && args[0] === "-r") {
                 const historyFilePath = args[1];
                 try {
@@ -576,18 +575,33 @@ const repl = () => {
                     const lines = historyFileContent.split("\n");
 
                     for (const line of lines) {
-                        // Skip empty lines
                         if (line.trim() !== "") {
                             history.push(line);
                         }
                     }
 
-                    output = ""; // history -r doesn't produce output
+                    output = "";
+                } catch (error) {
+                    output = `history: ${error.message}`;
+                }
+            } else if (args.length >= 2 && args[0] === "-w") {
+                const historyFilePath = args[1];
+                try {
+                    // Create directory if it doesn't exist
+                    const dir = path.dirname(historyFilePath);
+                    if (!fs.existsSync(dir)) {
+                        fs.mkdirSync(dir, { recursive: true });
+                    }
+
+                    // Write all history commands to the file
+                    const historyContent = history.join("\n") + "\n";
+                    fs.writeFileSync(historyFilePath, historyContent, "utf8");
+
+                    output = "";
                 } catch (error) {
                     output = `history: ${error.message}`;
                 }
             } else {
-                // Handle regular history command
                 if (args.length > 0) {
                     const n = parseInt(args[0]);
                     const startIndex = Math.max(0, history.length - n);
