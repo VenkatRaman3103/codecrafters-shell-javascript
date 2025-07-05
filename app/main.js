@@ -344,6 +344,25 @@ function executeBuiltin(args) {
                 return `${typeArg}: not found`;
             }
         }
+    } else if (command === "history") {
+        if (cmdArgs.length > 0) {
+            const n = parseInt(cmdArgs[0]);
+            const startIndex = Math.max(0, history.length - n);
+            let output = "";
+
+            for (let i = startIndex; i < history.length; i++) {
+                const lineNum = i + 1;
+                output += `${lineNum.toString().padStart(4)} ${history[i]}\n`;
+            }
+            return output.trimEnd();
+        } else {
+            let output = "";
+            for (let i = 0; i < history.length; i++) {
+                const lineNum = i + 1;
+                output += `${lineNum.toString().padStart(4)} ${history[i]}\n`;
+            }
+            return output.trimEnd();
+        }
     }
     return "";
 }
@@ -525,8 +544,54 @@ const repl = () => {
                 }
             }
         } else if (command === "history") {
-            for (let i = 0; i < history.length; i++) {
-                console.log(`${i + 1} ${history[i]}`);
+            if (args.length > 0) {
+                const n = parseInt(args[0]);
+                const startIndex = Math.max(0, history.length - n);
+                output = "";
+
+                for (let i = startIndex; i < history.length; i++) {
+                    const lineNum = i + 1;
+                    output += `${lineNum.toString().padStart(4)} ${history[i]}\n`;
+                }
+                output = output.trimEnd();
+            } else {
+                output = "";
+                for (let i = 0; i < history.length; i++) {
+                    const lineNum = i + 1;
+                    output += `${lineNum.toString().padStart(4)} ${history[i]}\n`;
+                }
+                output = output.trimEnd();
+            }
+
+            if (shouldRedirectStderr) {
+                try {
+                    writeToFile(errorFile, "", appendError);
+                } catch (error) {
+                    console.error(`history: ${error.message}`);
+                }
+            }
+
+            if (shouldRedirectStdout) {
+                try {
+                    writeToFile(outputFile, output + "\n", appendOutput);
+                } catch (error) {
+                    const errorMsg = `history: ${error.message}`;
+                    if (shouldRedirectStderr) {
+                        try {
+                            writeToFile(
+                                errorFile,
+                                errorMsg + "\n",
+                                appendError,
+                            );
+                        } catch (writeError) {
+                            console.error(errorMsg);
+                        }
+                    } else {
+                        console.error(errorMsg);
+                    }
+                }
+            } else {
+                console.log(output);
             }
         } else {
             const executablePath = findExecutable(command);
