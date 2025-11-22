@@ -258,6 +258,7 @@ function handlePipeline(commandLine) {
     if (commands.length < 2) {
         repl();
         return;
+        //
     }
 
     const processes = [];
@@ -618,7 +619,9 @@ const repl = () => {
                 try {
                     const dir = path.dirname(historyFilePath);
                     if (!fs.existsSync(dir)) {
-                        fs.mkdirSync(dir, { recursive: true });
+                        fs.mkdirSync(dir, {
+                            recursive: true,
+                        });
                     }
 
                     const historyContent = history.join("\n") + "\n";
@@ -704,13 +707,17 @@ const repl = () => {
                         if (shouldRedirectStdout) {
                             const dir = path.dirname(outputFile);
                             if (!fs.existsSync(dir)) {
-                                fs.mkdirSync(dir, { recursive: true });
+                                fs.mkdirSync(dir, {
+                                    recursive: true,
+                                });
                             }
                         }
                         if (shouldRedirectStderr) {
                             const dir = path.dirname(errorFile);
                             if (!fs.existsSync(dir)) {
-                                fs.mkdirSync(dir, { recursive: true });
+                                fs.mkdirSync(dir, {
+                                    recursive: true,
+                                });
                             }
                         }
 
